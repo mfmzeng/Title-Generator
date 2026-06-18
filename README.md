@@ -26,9 +26,17 @@ Output: <title>
 
 At inference, beam search returns **multiple title candidates** (`NUM_CANDIDATES` in `config.py`).
 
-## Dataset
+## Datasets
 
-[textminr/cmu-book-summaries](https://huggingface.co/datasets/textminr/cmu-book-summaries) — ~16.6k book plot summaries paired with book titles (`summary` → `title`). Summaries are chunked to `CHUNK_CHARS` before encoding.
+Each dataset has its own loader script and writes separate JSONL files under `data/`:
+
+| Script | Dataset | Input → title |
+|--------|---------|---------------|
+| `data_cmu_book_summaries.py` | [textminr/cmu-book-summaries](https://huggingface.co/datasets/textminr/cmu-book-summaries) | plot summary → book title |
+| `data_novel_chapter.py` | [manestay/novel-chapter-dataset](https://github.com/manestay/novel-chapter-dataset) | chapter summary → section title |
+| `data_simple_stories.py` | [SimpleStories/SimpleStories](https://huggingface.co/datasets/SimpleStories/SimpleStories) | short story → theme |
+
+Summaries are chunked to `CHUNK_CHARS` before encoding. `train.py` uses CMU Book Summaries by default.
 
 ## Safety
 
@@ -49,11 +57,15 @@ pip install -r requirements.txt
 ## Usage
 
 ```powershell
-# 1. Download CMU Book Summaries → data/seq2seq_train.jsonl, seq2seq_val.jsonl
-python data.py
+# 1. Download CMU Book Summaries
+python data_cmu_book_summaries.py
+
+# Other datasets (optional)
+python data_novel_chapter.py
+python data_simple_stories.py
 
 # Fast smoke test (~500 rows)
-python data.py --quick
+python data_cmu_book_summaries.py --quick
 
 # 2. Fine-tune BERT encoder–decoder
 python train.py
@@ -71,7 +83,10 @@ Checkpoints are saved to `checkpoints/bert2bert-titles/best/`.
 | File | Purpose |
 |------|---------|
 | `config.py` | Hyperparameters, dataset caps, blocked words |
-| `data.py` | Dataset loading, profanity filter, JSONL export |
+| `data_utils.py` | Shared chunking, dedupe, and JSONL export helpers |
+| `data_cmu_book_summaries.py` | CMU Book Summaries loader |
+| `data_novel_chapter.py` | Novel Chapter / BookSum loader |
+| `data_simple_stories.py` | SimpleStories loader (20k row cap) |
 | `safety.py` | Profanity / blocked-word filters |
 | `train.py` | BERT seq2seq fine-tuning |
 | `generate_title.py` | Inference with multiple candidates |

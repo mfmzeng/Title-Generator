@@ -24,7 +24,8 @@ from config import (
     NUM_BEAMS,
     NUM_CANDIDATES,
 )
-from data import _chunk_text
+from data_cmu_book_summaries import VAL_JSONL
+from data_utils import chunk_text
 from safety import blocked_word_token_ids
 
 
@@ -45,7 +46,7 @@ def load_model_and_tokenizer(root: Path, checkpoint: Path | None):
     ckpt = checkpoint or (root / CHECKPOINT_DIR / "best")
     if not ckpt.exists():
         raise SystemExit(
-            f"No checkpoint at {ckpt}. Run: python data.py && python train.py"
+            f"No checkpoint at {ckpt}. Run: python data_cmu_book_summaries.py && python train.py"
         )
     tokenizer = AutoTokenizer.from_pretrained(ckpt)
     model = EncoderDecoderModel.from_pretrained(ckpt)
@@ -56,7 +57,7 @@ def load_model_and_tokenizer(root: Path, checkpoint: Path | None):
 
 
 def format_input(text: str) -> str:
-    return INPUT_PREFIX + _chunk_text(text.strip(), CHUNK_CHARS)
+    return INPUT_PREFIX + chunk_text(text.strip(), CHUNK_CHARS)
 
 
 def generate_titles(
@@ -113,9 +114,9 @@ def main():
     model, tokenizer, device = load_model_and_tokenizer(root, args.checkpoint)
 
     if args.eval:
-        val_path = root / "data" / "seq2seq_val.jsonl"
+        val_path = root / "data" / VAL_JSONL
         if not val_path.exists():
-            raise SystemExit("No validation file. Run: python data.py")
+            raise SystemExit("No validation file. Run: python data_cmu_book_summaries.py")
 
         exact = total = 0
         with val_path.open(encoding="utf-8") as f:

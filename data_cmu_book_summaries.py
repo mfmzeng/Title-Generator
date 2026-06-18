@@ -1,29 +1,28 @@
 """
 Load CMU Book Summaries for BERT seq2seq title generation.
 
-Dataset: textminr/cmu-book-summaries
-  summary (plot text) → title (book title)
+Dataset: textminr/cmu-book-summaries (Hugging Face)
+  https://huggingface.co/datasets/textminr/cmu-book-summaries
+
+~16.6k book plot summaries paired with book titles (summary → title).
 """
 
 from __future__ import annotations
 
-import json
 import random
 import re
 from pathlib import Path
 
 import config as cfg
+from data_utils import chunk_text, dedupe_rows, export_jsonl, format_input
 from safety import is_safe_pair
 
+DATASET_ID = "textminr/cmu-book-summaries"
+TRAIN_JSONL = "seq2seq_train_cmu_book_summaries.jsonl"
+VAL_JSONL = "seq2seq_val_cmu_book_summaries.jsonl"
 PLAY_WORDS = ("scene", "act", "prologue", "epilogue")
 GENERIC_CHAPTER = re.compile(r"^chapters?\s+(\d+|[ivxlcdm]+)$", re.I)
 MIN_SUMMARY_CHARS = 100
-
-
-def _chunk_text(text: str, max_chars: int | None = None) -> str:
-    max_chars = max_chars if max_chars is not None else cfg.CHUNK_CHARS
-    text = text.strip()
-    return text if len(text) <= max_chars else text[:max_chars]
 
 
 def _title_ok(title: str) -> bool:
@@ -40,31 +39,11 @@ def _title_ok(title: str) -> bool:
     return True
 
 
-def _format_input(text: str) -> str:
-    return cfg.INPUT_PREFIX + _chunk_text(text)
-
-
-def _row_key(row: dict) -> tuple[str, str]:
-    return (row["text"].strip().lower(), row["title"].strip().lower())
-
-
-def dedupe_rows(rows: list[dict]) -> list[dict]:
-    seen: set[tuple[str, str]] = set()
-    unique: list[dict] = []
-    for row in rows:
-        key = _row_key(row)
-        if key in seen:
-            continue
-        seen.add(key)
-        unique.append(row)
-    return unique
-
-
 def load_cmu_book_summaries(max_rows: int | None = None) -> list[dict]:
     from datasets import load_dataset
 
-    print(f"  loading {cfg.DATASET_ID}...", flush=True)
-    ds = load_dataset(cfg.DATASET_ID, split="train")
+    print(f"  loading {DATASET_ID}...", flush=True)
+    ds = load_dataset(DATASET_ID, split="train")
     rows: list[dict] = []
 
     for i, row in enumerate(ds, 1):
@@ -72,12 +51,12 @@ def load_cmu_book_summaries(max_rows: int | None = None) -> list[dict]:
         summary = (row.get("summary") or "").strip()
         if len(summary) < MIN_SUMMARY_CHARS or not _title_ok(title):
             continue
-        chunk = _chunk_text(summary)
+        chunk = chunk_text(summary)
         if not is_safe_pair(chunk, title):
             continue
         rows.append(
             {
-                "text": _format_input(summary),
+                "text": format_input(summary),
                 "title": title,
                 "source": "cmu_book_summaries",
             }
@@ -103,7 +82,7 @@ def build_dataset(root: Path | None = None) -> tuple[list[dict], list[dict]]:
         print(f"  deduplicated {before:,} -> {len(all_rows):,} rows")
 
     if not all_rows:
-        raise SystemExit(f"No rows loaded from {cfg.DATASET_ID}")
+        raise SystemExit(f"No rows loaded from {DATASET_ID}")
 
     random.seed(cfg.RANDOM_SEED)
     random.shuffle(all_rows)
@@ -120,18 +99,11 @@ def build_dataset(root: Path | None = None) -> tuple[list[dict], list[dict]]:
     return train_rows, val_rows
 
 
-def export_jsonl(rows: list[dict], path: Path) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8") as f:
-        for row in rows:
-            f.write(json.dumps(row, ensure_ascii=False) + "\n")
-
-
 def prepare_data(root: Path | None = None) -> tuple[Path, Path]:
     root = root or Path(__file__).parent
     train_rows, val_rows = build_dataset(root)
-    train_path = root / "data" / "seq2seq_train.jsonl"
-    val_path = root / "data" / "seq2seq_val.jsonl"
+    train_path = root / "data" / TRAIN_JSONL
+    val_path = root / "data" / VAL_JSONL
     export_jsonl(train_rows, train_path)
     export_jsonl(val_rows, val_path)
     print(f"Wrote {len(train_rows):,} train -> {train_path}")
@@ -142,7 +114,9 @@ def prepare_data(root: Path | None = None) -> tuple[Path, Path]:
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        description="Prepare CMU Book Summaries (textminr/cmu-book-summaries on Hugging Face)"
+    )
     parser.add_argument(
         "--quick",
         action="store_true",

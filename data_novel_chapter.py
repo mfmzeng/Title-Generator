@@ -21,10 +21,12 @@ import urllib.request
 from pathlib import Path
 
 import config as cfg
-from data import _chunk_text, _format_input, dedupe_rows, export_jsonl
+from data_utils import chunk_text, dedupe_rows, export_jsonl, format_input
 from safety import is_safe_pair
 
 BOOKSUM_DATASET_ID = "kmfoda/booksum"
+TRAIN_JSONL = "seq2seq_train_novel_chapter.jsonl"
+VAL_JSONL = "seq2seq_val_novel_chapter.jsonl"
 NOVEL_CHAPTER_REPO = "https://github.com/manestay/novel-chapter-dataset"
 RAW_TEXTS_URL = (
     "https://github.com/manestay/novel-chapter-dataset/raw/main/pks/raw_texts.pk"
@@ -70,12 +72,12 @@ def _append_row(
     title = title.strip()
     if len(narrative) < MIN_TEXT_CHARS or not _section_title_ok(title):
         return False
-    chunk = _chunk_text(narrative)
+    chunk = chunk_text(narrative)
     if not is_safe_pair(chunk, title):
         return False
     rows.append(
         {
-            "text": _format_input(narrative),
+            "text": format_input(narrative),
             "title": title,
             "source": source,
         }
@@ -255,8 +257,8 @@ def prepare_data(
         use_summary=use_summary,
         raw_texts_only=raw_texts_only,
     )
-    train_path = root / "data" / "seq2seq_train_novel_chapter.jsonl"
-    val_path = root / "data" / "seq2seq_val_novel_chapter.jsonl"
+    train_path = root / "data" / TRAIN_JSONL
+    val_path = root / "data" / VAL_JSONL
     export_jsonl(train_rows, train_path)
     export_jsonl(val_rows, val_path)
     print(f"Wrote {len(train_rows):,} train -> {train_path}")

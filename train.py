@@ -1,7 +1,7 @@
 """
 Fine-tune BERT Encoder–Decoder for chapter title generation.
 
-  python data.py    # download & merge datasets
+  python data_cmu_book_summaries.py    # download CMU Book Summaries
   python train.py   # fine-tune bert2bert
 """
 
@@ -21,6 +21,7 @@ from transformers import (
     Seq2SeqTrainingArguments,
 )
 
+from data_cmu_book_summaries import TRAIN_JSONL, VAL_JSONL, prepare_data
 from config import (
     BATCH_SIZE,
     CHECKPOINT_DIR,
@@ -103,19 +104,17 @@ def build_model(tokenizer) -> EncoderDecoderModel:
 
 def main():
     root = Path(__file__).parent
-    train_path = root / "data" / "seq2seq_train.jsonl"
-    val_path = root / "data" / "seq2seq_val.jsonl"
+    train_path = root / "data" / TRAIN_JSONL
+    val_path = root / "data" / VAL_JSONL
 
     if not train_path.exists():
         print("Preparing datasets...")
-        from data import prepare_data
-
         prepare_data(root)
 
     train_rows = load_jsonl(train_path)
     val_rows = load_jsonl(val_path)
     if not train_rows:
-        raise SystemExit("No training data. Run: python data.py")
+        raise SystemExit("No training data. Run: python data_cmu_book_summaries.py")
 
     if torch.cuda.is_available():
         print(f"Device: cuda ({torch.cuda.get_device_name(0)})")
