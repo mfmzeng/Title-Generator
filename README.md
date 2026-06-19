@@ -24,57 +24,43 @@ Input:  generate chapter title: <narrative text>
 Output: <title>
 ```
 
-At inference, beam search returns **multiple title candidates** (`NUM_CANDIDATES` in `config.py`).
+At inference, beam search returns **multiple title candidates**.
 
 ## Datasets
 
-Each dataset has its own loader script and writes separate JSONL files under `data/`:
+All three sources are loaded and merged in `titleGenerator.ipynb`:
 
-| Script | Dataset | Input → title |
-|--------|---------|---------------|
-| `data_cmu_book_summaries.py` | [textminr/cmu-book-summaries](https://huggingface.co/datasets/textminr/cmu-book-summaries) | plot summary → book title |
-| `data_novel_chapter.py` | [manestay/novel-chapter-dataset](https://github.com/manestay/novel-chapter-dataset) | chapter summary → section title |
-| `data_simple_stories.py` | [SimpleStories/SimpleStories](https://huggingface.co/datasets/SimpleStories/SimpleStories) | short story → theme |
+| Source | Mapping | Approx. size |
+|--------|---------|--------------|
+| [CMU Book Summaries](https://huggingface.co/datasets/textminr/cmu-book-summaries) | plot summary → book title | ~16.6k |
+| [Novel Chapter / BookSum](https://github.com/manestay/novel-chapter-dataset) | chapter summary → section title | ~9.6k |
+| [SimpleStories](https://huggingface.co/datasets/SimpleStories/SimpleStories) | short story → theme | 20k cap |
 
-Summaries are chunked to `CHUNK_CHARS` before encoding. `train.py` uses CMU Book Summaries by default.
+Hybrid JSONL is written to `data/seq2seq_train_hybrid.jsonl` and `data/seq2seq_val_hybrid.jsonl` after the train/val split cell.
 
 ## Safety
 
-- `better-profanity` + regex blocklist scan on training pairs (`safety.py`)
+- `better-profanity` + regex blocklist on training pairs (inlined in notebook)
 - Blocked-word logits processor during decoder generation
 
 ## Setup
 
 ```powershell
-cd C:\Users\joe\Desktop\llm
+cd C:\Users\joe\Desktop\Title-Generator
 python -m venv .venv
 .\.venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-`bert-base` needs **~6 GB+ VRAM** (batch size 1 + gradient accumulation). On a 4 GB GPU, set `ENCODER_MODEL` / `DECODER_MODEL` to `prajjwal1/bert-tiny` in `config.py`.
+Create a `.env` file in the project root with `HF_TOKEN=your_huggingface_token` for dataset downloads.
+
+`bert-base` needs **~6 GB+ VRAM** (batch size 1 + gradient accumulation). On a 4 GB GPU, set `cfg.ENCODER_MODEL` / `cfg.DECODER_MODEL` to `prajjwal1/bert-tiny` in the notebook Imports cell.
 
 ## Usage
 
-```powershell
-# 1. Download CMU Book Summaries
-python data_cmu_book_summaries.py
+Open `titleGenerator.ipynb` in Jupyter or VS Code/Cursor and select **Run All**.
 
-# Other datasets (optional)
-python data_novel_chapter.py
-python data_simple_stories.py
-
-# Fast smoke test (~500 rows)
-python data_cmu_book_summaries.py --quick
-
-# 2. Fine-tune BERT encoder–decoder
-python train.py
-
-# 3. Generate title candidates
-python generate_title.py --text "Your chapter passage here..."
-python generate_title.py --chapter-file my_chapter.txt
-python generate_title.py --eval
-```
+The notebook is self-contained: configuration, dataset loaders, preprocessing, training, evaluation, and safety filtering are all inlined. No separate Python scripts are required.
 
 Checkpoints are saved to `checkpoints/bert2bert-titles/best/`.
 
@@ -82,11 +68,7 @@ Checkpoints are saved to `checkpoints/bert2bert-titles/best/`.
 
 | File | Purpose |
 |------|---------|
-| `config.py` | Hyperparameters, dataset caps, blocked words |
-| `data_utils.py` | Shared chunking, dedupe, and JSONL export helpers |
-| `data_cmu_book_summaries.py` | CMU Book Summaries loader |
-| `data_novel_chapter.py` | Novel Chapter / BookSum loader |
-| `data_simple_stories.py` | SimpleStories loader (20k row cap) |
-| `safety.py` | Profanity / blocked-word filters |
-| `train.py` | BERT seq2seq fine-tuning |
-| `generate_title.py` | Inference with multiple candidates |
+| `titleGenerator.ipynb` | Full pipeline + report (Run All) |
+| `requirements.txt` | Python dependencies |
+| `data/` | Hybrid train/val JSONL (generated; gitignored) |
+| `checkpoints/` | Fine-tuned model weights (gitignored) |
