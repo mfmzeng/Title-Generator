@@ -1,9 +1,1 @@
-.env
-.venv/
-__pycache__/
-*.pyc
-data/
-checkpoints/
-*.pth
-merges.pkl
-tokenized_input.pt
+venv/
